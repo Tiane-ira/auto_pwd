@@ -34,11 +34,13 @@ const addUrlBtn = document.getElementById('addUrlBtn');
 const addCurrentUrlBtn = document.getElementById('addCurrentUrlBtn');
 const tabButtons = document.querySelectorAll('.tab-btn');
 const autoFillToggle = document.getElementById('autoFillToggle');
+const pickElementBtn = document.getElementById('pickElementBtn');
 const fillValueInput = document.getElementById('fillValue'); // 填充值输入框
 
 // 初始化
 document.addEventListener('DOMContentLoaded', async () => {
   await loadCurrentPageUrl();
+  await stopActivePicker();
   await loadAutoFillStatus();
   await loadRules();
   setupEventListeners();
@@ -60,10 +62,16 @@ async function loadCurrentPageUrl() {
 // 加载自动填充开关状态
 async function loadAutoFillStatus() {
   try {
-    const result = await chrome.storage.local.get(['autoFillEnabled']);
-    autoFillEnabled = result.autoFillEnabled !== false; // 默认为true
+    const result = await chrome.storage.local.get(['autoFillEnabled', 'pendingPickerXPath']);
+    autoFillEnabled = result.autoFillEnabled !== false;
     if (autoFillToggle) {
       autoFillToggle.checked = autoFillEnabled;
+    }
+
+    if (result.pendingPickerXPath) {
+      const xpath = result.pendingPickerXPath;
+      await chrome.storage.local.remove(['pendingPickerXPath']);
+      await openModal(null, xpath);
     }
   } catch (error) {
     console.error('加载自动填充状态失败:', error);
@@ -124,46 +132,20 @@ function matchesCurrentUrl(rule) {
   if (!rule.urls || rule.urls.length === 0) {
     return false;
   }
-  
-  // 生成缓存键
-  const cacheKey = `${rule.id}_${currentPageUrl}`;
-  if (matchCache.has(cacheKey)) {
-    return matchCache.get(cacheKey);
-  }
-  
-  const result = rule.urls.some(url => matchUrl(currentPageUrl, url));
-  
-  // 缓存结果（限制缓存大小）
-  if (matchCache.size > 200) {
-    const firstKey = matchCache.keys().next().value;
-    matchCache.delete(firstKey);
-  }
-  matchCache.set(cacheKey, result);
-  
-  return result;
-}
 
-// 检查规则是否匹配当前URL - 优化：缓存匹配结果
-function matchesCurrentUrl(rule) {
-  if (!rule.urls || rule.urls.length === 0) {
-    return false;
-  }
-  
-  // 生成缓存键
   const cacheKey = `${rule.id}_${currentPageUrl}`;
   if (matchCache.has(cacheKey)) {
     return matchCache.get(cacheKey);
   }
-  
+
   const result = rule.urls.some(url => matchUrl(currentPageUrl, url));
-  
-  // 缓存结果（限制缓存大小）
+
   if (matchCache.size > 200) {
     const firstKey = matchCache.keys().next().value;
     matchCache.delete(firstKey);
   }
   matchCache.set(cacheKey, result);
-  
+
   return result;
 }
 
@@ -319,6 +301,9 @@ function setupEventListeners() {
   cancelImportBtn.addEventListener('click', () => hideImportModal());
   closeImportModal.addEventListener('click', () => hideImportModal());
   
+  // 元素选择器按钮
+  pickElementBtn.addEventListener('click', toggleElementPicker);
+
   // 自动完成初始化
   initAutocomplete();
   
@@ -786,10 +771,10 @@ function isValidUrl(url) {
 }
 
 // 打开模态框
-async function openModal(ruleId = null) {
+async function openModal(ruleId = null, prefillXPath = null) {
   editingRuleId = ruleId;
   currentUrls = [];
-  
+
   if (ruleId) {
     const rule = rules.find(r => r.id === ruleId);
     if (rule) {
@@ -798,7 +783,7 @@ async function openModal(ruleId = null) {
       document.getElementById('selectorType').value = rule.selectorType;
       document.getElementById('selector').value = rule.selector;
       document.getElementById('fillValue').value = rule.fillValue || '';
-      
+
       // 如果编辑时没有网址，自动添加当前网址
       if (currentUrls.length === 0) {
         await addCurrentUrl();
@@ -807,12 +792,16 @@ async function openModal(ruleId = null) {
   } else {
     modalTitle.textContent = '添加规则';
     ruleForm.reset();
-    // 新建规则时自动添加当前网址
     await addCurrentUrl();
+    if (prefillXPath) {
+      document.getElementById('selectorType').value = 'xpath';
+      document.getElementById('selector').value = prefillXPath;
+    }
   }
-  
+
   renderUrlsList();
   ruleModal.style.display = 'block';
+  document.getElementById('fillValue').focus();
 }
 
 // 关闭模态框
@@ -889,7 +878,32 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-// 显示通知
+// 打开popup时自动停止选择模式
+async function stopActivePicker() {
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tab && tab.id) {
+      await chrome.tabs.sendMessage(tab.id, { action: 'stopPicker' });
+    }
+  } catch {}
+}
+
+// 切换元素选择器模式
+async function toggleElementPicker() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab || !tab.url || tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://') || tab.url.startsWith('about:')) {
+    alert('无法在此页面上使用元素选择器');
+    return;
+  }
+  try {
+    await chrome.tabs.sendMessage(tab.id, { action: 'startPicker' });
+  } catch {
+    alert('无法在此页面使用元素选择器，请刷新页面后重试');
+    return;
+  }
+  window.close();
+}
+
 function showNotification(message) {
   // 简单的通知实现
   const notification = document.createElement('div');

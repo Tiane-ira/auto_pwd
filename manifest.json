@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Auto Fill Extension",
-  "version": "1.0.1",
+  "version": "2.0.0",
   "description": "支持使用CSS Selector和XPath进行元素选择和填充的浏览器插件",
   "permissions": [
     "storage",

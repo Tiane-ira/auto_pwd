@@ -11,12 +11,20 @@
     <header>
       <h1>自动填充规则</h1>
       <div class="header-actions">
-        <label class="switch-container">
+        <label class="switch-container" title="启用/禁用页面自动填充">
           <input type="checkbox" id="autoFillToggle" checked>
-          <span class="switch-label">自动填充</span>
+          <span class="switch-label"></span>
         </label>
-        
-        <button id="addRuleBtn" class="btn btn-primary">+ 添加规则</button>
+
+        <button id="pickElementBtn" class="btn btn-picker" title="选取页面元素并复制 XPath 路径">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="2" width="9" height="9" rx="1" stroke-dasharray="3 2"/>
+            <path d="M15 15l7 7"/>
+            <path d="M15 15l-2.5 2.5M15 15l2.5-2.5"/>
+            <circle cx="15" cy="15" r="4"/>
+          </svg>
+        </button>
+        <button id="addRuleBtn" class="btn btn-primary" title="新建一条填充规则">+</button>
         <div class="dropdown">
           <button id="moreOptionsBtn" class="btn btn-secondary">...</button>
           <div id="moreOptionsDropdown" class="dropdown-content">

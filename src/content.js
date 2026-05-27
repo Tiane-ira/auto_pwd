@@ -8,7 +8,124 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       .catch(error => sendResponse({ success: false, error: error.message }));
     return true; // 保持消息通道开放以支持异步响应
   }
+  if (request.action === 'startPicker') {
+    startElementPicker();
+    return;
+  }
+  if (request.action === 'stopPicker') {
+    stopElementPicker();
+    return;
+  }
 });
+
+// ========== 元素选择器 ==========
+let pickerActive = false;
+let pickerStyle = null;
+
+function getFullXPath(element) {
+  const parts = [];
+  let current = element;
+  while (current && current.nodeType === Node.ELEMENT_NODE) {
+    let tag = current.tagName.toLowerCase();
+    const parent = current.parentNode;
+    if (parent) {
+      let count = 0;
+      let pos = 0;
+      for (const child of parent.children) {
+        if (child.tagName === current.tagName) {
+          count++;
+          if (child === current) pos = count;
+        }
+      }
+      if (count > 1) tag += `[${pos}]`;
+    }
+    parts.unshift(tag);
+    current = current.parentNode;
+  }
+  return '/' + parts.join('/');
+}
+
+function startElementPicker() {
+  if (pickerActive) return;
+  pickerActive = true;
+  pickerStyle = document.createElement('style');
+  pickerStyle.id = '__picker_style__';
+  pickerStyle.textContent = 'body.__picker_active__ *:hover{outline:2px solid #5B6AF0!important;background:rgba(91,106,240,0.06)!important}';
+  document.head.appendChild(pickerStyle);
+  document.body.classList.add('__picker_active__');
+  document.body.style.cursor = 'crosshair';
+  document.addEventListener('click', onPickerClick, true);
+  document.addEventListener('keydown', onPickerKeyDown, true);
+}
+
+function stopElementPicker() {
+  pickerActive = false;
+  document.body.classList.remove('__picker_active__');
+  document.body.style.cursor = '';
+  if (pickerStyle) { pickerStyle.remove(); pickerStyle = null; }
+  const toast = document.getElementById('__picker_toast__');
+  if (toast) toast.remove();
+  document.removeEventListener('click', onPickerClick, true);
+  document.removeEventListener('keydown', onPickerKeyDown, true);
+}
+
+function copyToClipboard(text) {
+  if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+    return navigator.clipboard.writeText(text).catch(() => {});
+  }
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.left = '-9999px';
+  document.body.appendChild(ta);
+  ta.select();
+  document.execCommand('copy');
+  document.body.removeChild(ta);
+}
+
+function onPickerClick(e) {
+  if (!pickerActive) return;
+  e.preventDefault();
+  e.stopPropagation();
+  e.stopImmediatePropagation();
+  const xpath = getFullXPath(e.target);
+  copyToClipboard(xpath);
+  chrome.storage.local.set({ pendingPickerXPath: xpath });
+  showPickerToast('XPath已复制,进入插件添加规则或继续选取,Esc退出');
+}
+
+function showPickerToast(message) {
+  if (!document.getElementById('__picker_toast_style__')) {
+    const style = document.createElement('style');
+    style.id = '__picker_toast_style__';
+    style.textContent = '@keyframes toastSlideIn{from{opacity:0;transform:translateX(-50%) translateY(-12px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}';
+    document.head.appendChild(style);
+  }
+  const old = document.getElementById('__picker_toast__');
+  if (old) old.remove();
+  const toast = document.createElement('div');
+  toast.id = '__picker_toast__';
+  toast.style.cssText = `
+    position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+    background: #5B6AF0; color: #fff; padding: 12px 20px; border-radius: 8px;
+    font-size: 14px; z-index: 2147483647;
+    box-shadow: 0 4px 20px rgba(91,106,240,0.35);
+    white-space: nowrap; max-width: 90vw; overflow: hidden; text-overflow: ellipsis;
+    animation: toastSlideIn 0.25s ease-out;
+  `;
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transition = 'opacity 0.2s';
+    toast.addEventListener('transitionend', () => toast.remove());
+    setTimeout(() => toast.remove(), 250);
+  }, 2500);
+}
+
+function onPickerKeyDown(e) {
+  if (e.key === 'Escape') stopElementPicker();
+}
 
 // 标准化URL（移除hash和query参数，用于匹配）
 function normalizeUrl(url) {
