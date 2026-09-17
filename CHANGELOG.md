@@ -1,5 +1,34 @@
 # 变更日志 (Changelog)
 
+## [2.1.0] - 2026-09-17
+
+### 新功能
+- **架构模块化重构**：
+  - 彻底拆解原庞大单体文件（`content.js` ~1500行，`popup.js` ~1500行），重组为职责清晰的模块化架构；
+  - `src/content/` 拆分为 `utils.js`、`xpath.js`、`picker.js`、`filler.js`、`key-icon.js`、`main.js`；
+  - `src/popup/` 采用原生 ES Module 拆分为 `storage.js`、`url-manager.js`、`fields-editor.js`、`groups-editor.js`、`rules-renderer.js`、`picker-bridge.js` 以及主入口 `popup.js`；
+  - 全流程零打包依赖（Zero External Bundlers），纯原生浏览器标准，维护轻松高效。
+- **现代化工程体系与 CI/CD 自动化**：
+  - 新增 `package.json` 标准工程配置，支持 `npm test`（8项自动化单测）与 `npm run build`；
+  - 新增统一跨平台构建脚本 `scripts/build.js`，一键生成开发解压包、开发测试压缩包及商店发布纯净包；
+  - 配置 GitHub Actions 自动发布工作流（`.github/workflows/release.yml`），支持推送 tag 自动触发测试、构建与 GitHub Release。
+- **表单数据分组填写**：支持为网址/规则配置多套填充数据，填充值默认值为空字符串，可指定其中一组作为「默认填充」。
+- **网址数据组快捷管理**：Popup「当前网址」新增网址数据组快捷栏，支持一键切换当前网址的默认填充组及手动触发立即填充。
+- **Chrome 密码管理交互**：
+  - 页面加载时默认使用「默认数据组」自动填充；
+  - 鼠标 hover 到表单输入框右侧时浮现 🔑 钥匙图标；
+  - 点击 🔑 钥匙图标展开 Chrome 原生密码管理风格的分组选择菜单，点击任意数据组即可一键填充整套表单；
+  - 采用独立的 Shadow DOM 隔离渲染，彻底避免页面样式污染。
+- **连续套索选取与 XPath 去重**：
+  - 支持套索连续点击表单元素，自动识别字段名并常驻半透明顶部操作条；
+  - 严格通过 XPath 查重，同一网址聚合为一组表单项。
+- **分组优先同屏编辑**：
+  - 先选分组（Pills 标签），同屏一次性编辑当前分组下的所有表单数据项。
+- **纯 XPath 模式改造**：完全移除 CSS 选择器模式，仅保留 XPath 模式；前端规则编辑表单彻底移除选择器类型下拉选项，底层全面采用 `document.evaluate` 提效与精简。
+- **无损向后兼容**：自动兼容并平滑迁移旧版规则与备份数据（旧规则自动平滑转换为 XPath 类型与默认分组）。
+
+---
+
 ## [1.0.1] - 2026-02-06
 
 ### 改进

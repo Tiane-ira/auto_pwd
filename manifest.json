@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Auto Fill Extension",
-  "version": "2.0.0",
-  "description": "支持使用CSS Selector和XPath进行元素选择和填充的浏览器插件",
+  "version": "2.1.0",
+  "description": "支持使用XPath进行元素选择和分组数据填充的浏览器插件",
   "permissions": [
     "storage",
     "activeTab",
@@ -13,7 +13,7 @@
     "<all_urls>"
   ],
   "action": {
-    "default_popup": "src/popup.html",
+    "default_popup": "src/popup/popup.html",
     "default_icon": {
       "16": "assets/icons/icon16.png",
       "48": "assets/icons/icon48.png",
@@ -23,7 +23,14 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["src/content.js"],
+      "js": [
+        "src/content/utils.js",
+        "src/content/xpath.js",
+        "src/content/picker.js",
+        "src/content/filler.js",
+        "src/content/key-icon.js",
+        "src/content/main.js"
+      ],
       "run_at": "document_end"
     }
   ],

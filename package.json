@@ -1,0 +1,24 @@
+{
+  "name": "auto-fill-extension",
+  "version": "2.1.0",
+  "description": "A Manifest V3 Chrome extension for automated multi-field form filling with group management and XPath selection.",
+  "main": "src/background.js",
+  "scripts": {
+    "test": "node tests/verify-logic.js",
+    "build": "node scripts/build.js",
+    "package": "node scripts/build.js"
+  },
+  "keywords": [
+    "chrome-extension",
+    "manifest-v3",
+    "auto-fill",
+    "form-filler",
+    "xpath"
+  ],
+  "author": "Tiane-ira",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:Tiane-ira/auto_pwd.git"
+  }
+}

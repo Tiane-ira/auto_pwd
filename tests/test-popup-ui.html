@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Popup UI 自动化测试预览</title>
+  <script>
+    // Mock Chrome APIs for UI preview in standard browser
+    const mockStorage = {
+      rules: [
+        {
+          id: 'mock-rule-1',
+          urls: ['https://example.com/login'],
+          selectorType: 'xpath',
+          fields: [
+            { id: 'f_1', name: '用户名', selector: "//input[@id='username']" },
+            { id: 'f_2', name: '密码', selector: "//input[@id='password']" }
+          ],
+          fillGroups: [
+            {
+              id: 'g_1',
+              name: '管理员',
+              isDefault: true,
+              values: { f_1: 'admin', f_2: 'admin888' }
+            },
+            {
+              id: 'g_2',
+              name: '测试账号',
+              isDefault: false,
+              values: { f_1: 'tester', f_2: 'test1234' }
+            }
+          ]
+        }
+      ],
+      autoFillEnabled: true
+    };
+
+    window.chrome = {
+      runtime: {
+        sendMessage: (msg, cb) => cb && cb({ success: true })
+      },
+      tabs: {
+        query: async () => [{ id: 1, url: 'https://example.com/login' }],
+        sendMessage: async () => ({ success: true })
+      },
+      storage: {
+        local: {
+          get: async (keys) => {
+            const res = {};
+            keys.forEach(k => { res[k] = mockStorage[k]; });
+            return res;
+          },
+          set: async (items) => {
+            Object.assign(mockStorage, items);
+          },
+          remove: async (keys) => {
+            keys.forEach(k => { delete mockStorage[k]; });
+          }
+        }
+      }
+    };
+  </script>
+  <link rel="stylesheet" href="../src/popup/popup.css">
+  <style>
+    body {
+      background: #F1F5F9;
+      display: flex;
+      justify-content: center;
+      padding: 20px;
+    }
+    .container {
+      background: #fff;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>自动填充规则</h1>
+      <div class="header-actions">
+        <label class="switch-container" title="启用/禁用页面自动填充">
+          <input type="checkbox" id="autoFillToggle" checked>
+          <span class="switch-label"></span>
+        </label>
+
+        <button id="pickElementBtn" class="btn btn-picker" title="选取页面元素并复制 XPath 路径">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="2" width="9" height="9" rx="1" stroke-dasharray="3 2"/>
+            <path d="M15 15l7 7"/>
+            <path d="M15 15l-2.5 2.5M15 15l2.5-2.5"/>
+            <circle cx="15" cy="15" r="4"/>
+          </svg>
+        </button>
+        <button id="addRuleBtn" class="btn btn-primary" title="新建一条填充规则">+</button>
+        <div class="dropdown">
+          <button id="moreOptionsBtn" class="btn btn-secondary">...</button>
+          <div id="moreOptionsDropdown" class="dropdown-content">
+            <button id="exportRulesBtn" class="dropdown-item">导出规则</button>
+            <button id="importRulesBtn" class="dropdown-item">导入规则</button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Tab切换 -->
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="current">当前网址</button>
+      <button class="tab-btn" data-tab="all">所有规则</button>
+    </div>
+
+    <!-- 当前网址匹配的规则 -->
+    <div id="currentTab" class="tab-content active">
+      <div id="urlGroupsToolbar" class="url-groups-toolbar" style="display: none;">
+        <div class="url-groups-header">
+          <div class="url-groups-title-wrap">
+            <span class="url-groups-title">网址数据组:</span>
+            <span class="url-groups-hint">点击切换默认填充组</span>
+          </div>
+          <div class="url-groups-actions">
+            <button type="button" id="triggerFillBtn" class="btn btn-small btn-primary" title="使用当前默认数据组填充页面">⚡ 立即填充</button>
+          </div>
+        </div>
+        <div id="urlGroupsPills" class="url-groups-pills"></div>
+      </div>
+
+      <div id="currentRulesList" class="rules-list"></div>
+    </div>
+
+    <!-- 按网址分组的规则列表 -->
+    <div id="allTab" class="tab-content">
+      <div id="allRulesList" class="rules-list"></div>
+    </div>
+
+    <!-- 导入规则确认模态框 -->
+    <div id="importModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>导入规则</h2>
+          <span class="close-import">&times;</span>
+        </div>
+        <div class="modal-body">
+          <p>您确定要导入新的规则吗？这将会覆盖现有的所有规则。</p>
+          <div class="form-actions">
+            <button type="button" id="confirmImportBtn" class="btn btn-danger">确认导入</button>
+            <button type="button" class="btn btn-secondary" id="cancelImportBtn">取消</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 添加/编辑规则模态框 -->
+    <div id="ruleModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 id="modalTitle">添加规则</h2>
+          <span class="close">&times;</span>
+        </div>
+        <div class="modal-body">
+          <form id="ruleForm">
+            <div class="form-group">
+              <label for="urlsList">绑定网址列表:</label>
+              <div class="urls-container">
+                <div id="urlsList" class="urls-list"></div>
+                <div class="url-input-group">
+                  <input type="text" id="urlInput" placeholder="输入网址或点击右侧按钮添加当前网址" class="url-input">
+                  <button type="button" id="addCurrentUrlBtn" class="btn btn-small">添加当前网址</button>
+                  <button type="button" id="addUrlBtn" class="btn btn-small btn-primary">添加</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 表单项设置 (待填充的网页字段) -->
+            <div class="form-group">
+              <div class="section-header">
+                <label>表单项设置 (待填充的网页字段):</label>
+                <button type="button" id="addFieldBtn" class="btn btn-small btn-secondary">+ 添加表单项</button>
+              </div>
+              <p class="form-hint">为本页面的各个输入框添加字段名称与对应的 XPath 选择器。</p>
+              <div id="fieldsContainer" class="fields-container">
+                <div class="fields-header-row">
+                  <div class="field-col-name">表单项名称</div>
+                  <div class="field-col-selector">XPath 选择器</div>
+                  <div class="field-col-action">操作</div>
+                </div>
+                <div id="fieldsList" class="fields-list"></div>
+              </div>
+            </div>
+
+            <!-- 数据分组列表 (分组优先模式：选择分组，同时编辑该分组下的所有字段) -->
+            <div class="form-group" style="margin-top: 20px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <label style="margin-bottom: 0;">填充数据与分组</label>
+                <button type="button" class="btn btn-secondary btn-sm" id="addGroupBtn" style="padding: 4px 8px; font-size: 11px;">+ 添加数据组</button>
+              </div>
+              <p class="form-hint" style="margin-bottom: 10px;">点击下方选项卡选择数据分组，可同时编辑当前分组下的所有表单数据。</p>
+              
+              <!-- 分组选项卡栏 -->
+              <div class="group-tabs-bar" id="groupTabsBar"></div>
+
+              <!-- 当前选中分组的详情编辑区 -->
+              <div class="active-group-editor" id="activeGroupEditor">
+                <div class="active-group-toolbar">
+                  <div class="active-group-left">
+                    <label class="active-group-name-label">分组名称:</label>
+                    <input type="text" class="active-group-name-input" id="activeGroupNameInput" placeholder="组名如: 账号1">
+                    <label class="active-group-default-label">
+                      <input type="checkbox" id="activeGroupDefaultCheck"> 设为默认填充组
+                    </label>
+                  </div>
+                  <button type="button" class="btn-delete-group-text" id="deleteActiveGroupBtn" title="删除该组">删除此组</button>
+                </div>
+                <!-- 该分组下的所有表单项取值列表 -->
+                <div class="active-group-fields-list" id="activeGroupFieldsList"></div>
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary">保存</button>
+              <button type="button" class="btn btn-secondary" id="cancelBtn">取消</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="../src/popup/popup.js"></script>
+</body>
+</html>

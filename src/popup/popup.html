@@ -43,6 +43,20 @@
 
     <!-- 当前网址匹配的规则 -->
     <div id="currentTab" class="tab-content active">
+      <!-- 当前网址数据组管理工具栏 -->
+      <div id="urlGroupsToolbar" class="url-groups-toolbar" style="display: none;">
+        <div class="url-groups-header">
+          <div class="url-groups-title-wrap">
+            <span class="url-groups-title">网址数据组:</span>
+            <span class="url-groups-hint">点击切换默认填充组</span>
+          </div>
+          <div class="url-groups-actions">
+            <button type="button" id="triggerFillBtn" class="btn btn-small btn-primary" title="使用当前默认数据组填充页面">⚡ 立即填充</button>
+          </div>
+        </div>
+        <div id="urlGroupsPills" class="url-groups-pills"></div>
+      </div>
+
       <div id="currentRulesList" class="rules-list">
         <!-- 当前网址匹配的规则将动态生成 -->
       </div>
@@ -93,22 +107,55 @@
               </div>
             </div>
 
+            <!-- 表单项设置 (待填充的网页字段) -->
             <div class="form-group">
-              <label for="selectorType">填充方式:</label>
-              <select id="selectorType" required>
-                <option value="xpath">XPath</option>
-                <option value="css">CSS Selector</option>
-              </select>
+              <div class="section-header">
+                <label>表单项设置 (待填充的网页字段):</label>
+                <button type="button" id="addFieldBtn" class="btn btn-small btn-secondary">+ 添加表单项</button>
+              </div>
+              <p class="form-hint">为本页面的各个输入框添加字段名称与对应的 XPath 选择器。</p>
+              <div id="fieldsContainer" class="fields-container">
+                <div class="fields-header-row">
+                  <div class="field-col-name">表单项名称</div>
+                  <div class="field-col-selector">XPath 选择器</div>
+                  <div class="field-col-action">操作</div>
+                </div>
+                <div id="fieldsList" class="fields-list"></div>
+              </div>
             </div>
 
+            <!-- 填充数据分组设置 (先选择分组，再同时编辑其所有表单项) -->
             <div class="form-group">
-              <label for="selector">选择器:</label>
-              <textarea id="selector" required placeholder="输入XPath表达式或者CSS选择器" rows="3"></textarea>
-            </div>
+              <div class="section-header">
+                <label>填充数据分组设置 (先选分组，同时编辑该组所有数据项):</label>
+                <button type="button" id="addGroupBtn" class="btn btn-small btn-secondary">+ 添加数据组</button>
+              </div>
+              <p class="form-hint">点击下方标签切换不同数据组，可在一个视图下同时编辑该组的所有表单数据项：</p>
+              
+              <!-- 分组选择标签栏 (先选择分组) -->
+              <div id="groupTabsBar" class="group-tabs-bar"></div>
 
-            <div class="form-group">
-              <label for="fillValue">填充值:</label>
-              <input type="text" id="fillValue" required placeholder="要填充的文本内容">
+              <!-- 当前激活分组的统一编辑面板 (同时编辑该分组下的所有数据项) -->
+              <div id="activeGroupEditor" class="active-group-editor">
+                <div class="active-group-toolbar">
+                  <div class="active-group-name-wrap">
+                    <label for="activeGroupNameInput">分组名称:</label>
+                    <input type="text" id="activeGroupNameInput" class="active-group-name-input" placeholder="如: 管理员 / 测试账号">
+                  </div>
+                  <label class="active-group-default-label" title="将此分组设为页面默认填充组">
+                    <input type="checkbox" id="activeGroupDefaultCheck">
+                    <span>设为默认填充组</span>
+                  </label>
+                  <button type="button" id="deleteActiveGroupBtn" class="btn-delete-group-text" title="删除当前选中的分组">删除此组</button>
+                </div>
+                <div class="active-group-fields-header">
+                  <span>当前组各表单项填充值:</span>
+                  <span class="active-group-hint">为本分组配置所有表单字段值 (可留空)</span>
+                </div>
+                <div id="activeGroupFieldsList" class="active-group-fields-list">
+                  <!-- 动态生成该分组下所有表单项的输入行 -->
+                </div>
+              </div>
             </div>
 
             <div class="form-actions">
@@ -121,6 +168,6 @@
     </div>
   </div>
 
-  <script src="popup.js"></script>
+  <script type="module" src="popup.js"></script>
 </body>
 </html>
