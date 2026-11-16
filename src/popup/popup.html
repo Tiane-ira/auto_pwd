@@ -69,17 +69,54 @@
       </div>
     </div>
 
-    <!-- 导入规则确认模态框 -->
+    <!-- 导入规则模态框 -->
     <div id="importModal" class="modal">
-      <div class="modal-content">
+      <div class="modal-content" style="max-width: 500px;">
         <div class="modal-header">
           <h2>导入规则</h2>
           <span class="close-import">&times;</span>
         </div>
         <div class="modal-body">
-          <p>您确定要导入新的规则吗？这将会覆盖现有的所有规则。</p>
-          <div class="form-actions">
-            <button type="button" id="confirmImportBtn" class="btn btn-danger">确认导入</button>
+          <!-- 方式一：文件拖拽/选择区域 -->
+          <div id="importDropZone" class="import-drop-zone">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#5B6AF0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            <p class="drop-zone-text">点击选择 JSON 规则文件 或 拖拽文件至此处</p>
+            <span class="drop-zone-hint">支持 .json 备份文件</span>
+            <input type="file" id="rulesFileInput" accept=".json,application/json" style="display: none;">
+          </div>
+
+          <!-- 方式二：粘贴 JSON 区域（防止浏览器文件选择器弹窗导致 Popup 失焦关闭） -->
+          <div class="import-paste-wrap">
+            <div class="import-paste-toggle" id="togglePasteAreaBtn">
+              <span>或直接粘贴 JSON 规则内容</span>
+              <span id="pasteToggleArrow">▾</span>
+            </div>
+            <div id="pasteAreaContainer" style="display: none; margin-top: 8px;">
+              <textarea id="importJsonTextarea" placeholder='在此粘贴导出规则的 JSON 内容，例如: {"rules": [...]} 或 [{...}]' class="import-textarea"></textarea>
+            </div>
+          </div>
+
+          <!-- 导入状态反馈 -->
+          <div id="importStatusMessage" class="import-status-message" style="display: none;"></div>
+
+          <!-- 导入模式选项 -->
+          <div class="import-options">
+            <label class="import-option-label">
+              <input type="radio" name="importMode" value="merge" checked>
+              <span>合并追加（保留现有规则，更新同网址规则）</span>
+            </label>
+            <label class="import-option-label">
+              <input type="radio" name="importMode" value="overwrite">
+              <span>覆盖全部（清空现有规则，仅保留导入规则）</span>
+            </label>
+          </div>
+
+          <div class="form-actions" style="margin-top: 16px;">
+            <button type="button" id="confirmImportBtn" class="btn btn-primary" disabled>确认导入 (0 条)</button>
             <button type="button" class="btn btn-secondary" id="cancelImportBtn">取消</button>
           </div>
         </div>

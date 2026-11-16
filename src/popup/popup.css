@@ -1040,3 +1040,113 @@ h1 {
   color: #6B7280;
 }
 
+/* ===== 规则导入模态框增强样式 ===== */
+.import-drop-zone {
+  border: 2px dashed #CBD5E1;
+  border-radius: 8px;
+  padding: 16px 12px;
+  text-align: center;
+  background: #F8FAFC;
+  cursor: pointer;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+
+.import-drop-zone:hover,
+.import-drop-zone.dragover {
+  border-color: #5B6AF0;
+  background: #EEF2FF;
+}
+
+.drop-zone-text {
+  font-size: 13px;
+  font-weight: 500;
+  color: #334155;
+  margin-top: 6px;
+}
+
+.drop-zone-hint {
+  font-size: 11px;
+  color: #94A3B8;
+  display: block;
+  margin-top: 2px;
+}
+
+.import-paste-wrap {
+  margin-top: 12px;
+}
+
+.import-paste-toggle {
+  font-size: 12px;
+  color: #5B6AF0;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  user-select: none;
+  padding: 4px 0;
+}
+
+.import-paste-toggle:hover {
+  text-decoration: underline;
+}
+
+.import-textarea {
+  width: 100%;
+  height: 80px;
+  border: 1px solid #E2E8F0;
+  border-radius: 6px;
+  padding: 8px;
+  font-size: 12px;
+  font-family: monospace;
+  resize: vertical;
+  outline: none;
+  background: #FAFAFC;
+  box-sizing: border-box;
+}
+
+.import-textarea:focus {
+  border-color: #5B6AF0;
+  background: #fff;
+}
+
+.import-status-message {
+  margin-top: 10px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.import-status-message.success {
+  background: #ECFDF5;
+  color: #065F46;
+  border: 1px solid #A7F3D0;
+}
+
+.import-status-message.error {
+  background: #FEF2F2;
+  color: #991B1B;
+  border: 1px solid #FECACA;
+}
+
+.import-options {
+  margin-top: 12px;
+  padding: 8px 12px;
+  background: #F8FAFC;
+  border-radius: 6px;
+  border: 1px solid #E2E8F0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.import-option-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #334155;
+  cursor: pointer;
+}
+
+

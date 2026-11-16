@@ -12,12 +12,28 @@ function generateUUID() {
 
 // 规范化规则对象：支持多表单项（fields）与多数据组（fillGroups）
 function normalizeRule(rule) {
+  if (!rule || typeof rule !== 'object') {
+    rule = {};
+  }
+
+  // 确保 rule.id 始终存在且非空
+  rule.id = (typeof rule.id === 'string' && rule.id.trim()) ? rule.id.trim() : generateUUID();
   rule.selectorType = 'xpath';
 
-  // 1. 规范化表单项列表 (fields)
+  // 1. 规范化 urls 列表
+  if (!Array.isArray(rule.urls)) {
+    if (typeof rule.url === 'string' && rule.url.trim()) {
+      rule.urls = [rule.url.trim()];
+    } else {
+      rule.urls = [];
+    }
+  } else {
+    rule.urls = rule.urls.map(u => (typeof u === 'string' ? u.trim() : '')).filter(Boolean);
+  }
+
+  // 2. 规范化表单项列表 (fields)
   if (!rule.fields || !Array.isArray(rule.fields) || rule.fields.length === 0) {
-    // 兼容历史单选择器规则
-    const fallbackSelector = typeof rule.selector === 'string' ? rule.selector : '';
+    const fallbackSelector = typeof rule.selector === 'string' ? rule.selector.trim() : '';
     rule.fields = [
       {
         id: generateUUID(),
@@ -27,16 +43,16 @@ function normalizeRule(rule) {
     ];
   } else {
     rule.fields = rule.fields.map((f, idx) => ({
-      id: f.id || generateUUID(),
-      name: (f.name || '').trim() || `表单项 ${idx + 1}`,
-      selector: typeof f.selector === 'string' ? f.selector.trim() : ''
+      id: (f && f.id) || generateUUID(),
+      name: (f && typeof f.name === 'string' ? f.name.trim() : '') || `表单项 ${idx + 1}`,
+      selector: (f && typeof f.selector === 'string') ? f.selector.trim() : ''
     }));
   }
 
   // 保持单 selector 字段与首个表单项同步（向后兼容）
   rule.selector = rule.fields[0] ? rule.fields[0].selector : '';
 
-  // 2. 规范化数据分组列表 (fillGroups)
+  // 3. 规范化数据分组列表 (fillGroups)
   if (!rule.fillGroups || !Array.isArray(rule.fillGroups) || rule.fillGroups.length === 0) {
     const defaultValues = {};
     rule.fields.forEach(f => {
@@ -52,12 +68,10 @@ function normalizeRule(rule) {
     ];
   } else {
     rule.fillGroups = rule.fillGroups.map((g, idx) => {
-      const gValues = (g.values && typeof g.values === 'object') ? { ...g.values } : {};
-      // 如果是旧版单值分组，将旧值映射到第一个表单项
-      if (typeof g.value === 'string' && Object.keys(gValues).length === 0 && rule.fields[0]) {
+      const gValues = (g && g.values && typeof g.values === 'object') ? { ...g.values } : {};
+      if (g && typeof g.value === 'string' && Object.keys(gValues).length === 0 && rule.fields[0]) {
         gValues[rule.fields[0].id] = g.value;
       }
-      // 确保每个表单项在 values 中都有定义
       rule.fields.forEach(f => {
         if (typeof gValues[f.id] !== 'string') {
           gValues[f.id] = '';
@@ -65,9 +79,9 @@ function normalizeRule(rule) {
       });
 
       return {
-        id: g.id || generateUUID(),
-        name: (g.name || '').trim() || (idx === 0 ? '默认分组' : `分组 ${idx + 1}`),
-        isDefault: Boolean(g.isDefault),
+        id: (g && g.id) || generateUUID(),
+        name: (g && typeof g.name === 'string' ? g.name.trim() : '') || (idx === 0 ? '默认分组' : `分组 ${idx + 1}`),
+        isDefault: Boolean(g && g.isDefault),
         values: gValues
       };
     });
@@ -78,11 +92,72 @@ function normalizeRule(rule) {
     rule.fillGroups[0].isDefault = true;
   }
 
-  // 保持 fillValue 兼容
   const defaultGroup = rule.fillGroups.find(g => g.isDefault) || rule.fillGroups[0];
   rule.fillValue = defaultGroup && rule.fields[0] ? (defaultGroup.values[rule.fields[0].id] || '') : '';
 
   return rule;
+}
+
+function parseImportRules(rawContent) {
+  if (!rawContent || typeof rawContent !== 'string') {
+    return { success: false, message: '导入内容为空' };
+  }
+
+  const cleanContent = rawContent.replace(/^\uFEFF/, '').trim();
+  if (!cleanContent) {
+    return { success: false, message: '导入内容为空' };
+  }
+
+  let data;
+  try {
+    data = JSON.parse(cleanContent);
+  } catch (err) {
+    return { success: false, message: `JSON 语法解析失败: ${err.message}` };
+  }
+
+  let rawList = null;
+  if (Array.isArray(data)) {
+    rawList = data;
+  } else if (data && typeof data === 'object') {
+    if (Array.isArray(data.rules)) {
+      rawList = data.rules;
+    } else if (Array.isArray(data.data)) {
+      rawList = data.data;
+    } else if (data.fields || data.selector || data.urls || data.url) {
+      rawList = [data];
+    }
+  }
+
+  if (!rawList || !Array.isArray(rawList) || rawList.length === 0) {
+    return { success: false, message: '未找到规则数组，请确保 JSON 包含 rules 列表或直接为规则数组' };
+  }
+
+  const validRules = rawList
+    .filter(item => item && typeof item === 'object')
+    .map(item => normalizeRule(JSON.parse(JSON.stringify(item))));
+
+  if (validRules.length === 0) {
+    return { success: false, message: '规则列表中无可用有效规则' };
+  }
+
+  return { success: true, rules: validRules };
+}
+
+function mergeRules(existingRules, importedRules) {
+  const result = [...existingRules];
+  importedRules.forEach(newRule => {
+    let index = result.findIndex(r => r.id === newRule.id);
+    if (index === -1 && newRule.urls && newRule.urls.length > 0) {
+      index = result.findIndex(r => r.urls && r.urls.some(u => newRule.urls.includes(u)));
+    }
+
+    if (index !== -1) {
+      result[index] = newRule;
+    } else {
+      result.push(newRule);
+    }
+  });
+  return result;
 }
 
 // 获取规则在指定组名下的所有表单项填充值集合
@@ -321,5 +396,82 @@ assert.strictEqual(targetRule.fields.length, 3);
 assert.strictEqual(targetRule.fillGroups[0].values[newEmailField.id], '');
 assert.strictEqual(targetRule.fillGroups[1].values[newEmailField.id], '');
 console.log('✅ 测试 8 (手动添加表单项去重与各组同步) 通过');
+
+// 测试 9: 规则导入解析（支持 BOM 头、纯数组格式、包装对象格式、缺省 id 自动补充）
+const jsonWithBOM = '\uFEFF' + JSON.stringify({
+  version: '2.1.1',
+  rules: [
+    {
+      urls: ['https://test.com/login'],
+      selector: "//input[@id='username']",
+      fillValue: 'bom_user'
+    }
+  ]
+});
+
+const bomResult = parseImportRules(jsonWithBOM);
+assert.strictEqual(bomResult.success, true);
+assert.strictEqual(bomResult.rules.length, 1);
+assert.strictEqual(typeof bomResult.rules[0].id, 'string');
+assert(bomResult.rules[0].id.length > 0);
+assert.strictEqual(bomResult.rules[0].fields[0].selector, "//input[@id='username']");
+console.log('✅ 测试 9.1 (BOM 头剥离与包装对象解析) 通过');
+
+const bareArrayJson = JSON.stringify([
+  {
+    urls: ['https://array.com/test'],
+    fields: [{ name: '搜索框', selector: "//input[@name='q']" }],
+    fillGroups: [{ name: '默认', isDefault: true, values: {} }]
+  }
+]);
+const arrayResult = parseImportRules(bareArrayJson);
+assert.strictEqual(arrayResult.success, true);
+assert.strictEqual(arrayResult.rules.length, 1);
+assert.strictEqual(arrayResult.rules[0].fields[0].name, '搜索框');
+console.log('✅ 测试 9.2 (纯数组格式解析) 通过');
+
+const invalidJson = "{ bad json: ";
+const invalidResult = parseImportRules(invalidJson);
+assert.strictEqual(invalidResult.success, false);
+assert(invalidResult.message.includes('JSON 语法解析失败'));
+console.log('✅ 测试 9.3 (异常 JSON 优雅拦截提示) 通过');
+
+// 测试 10: 规则合并与覆盖逻辑
+const existingList = [
+  {
+    id: 'r-1',
+    urls: ['https://site-a.com'],
+    fields: [{ id: 'f-1', name: '字段A', selector: "//input[@id='a']" }],
+    fillGroups: [{ id: 'g-1', name: '默认', isDefault: true, values: { 'f-1': 'old_val' } }]
+  },
+  {
+    id: 'r-2',
+    urls: ['https://site-b.com'],
+    fields: [{ id: 'f-2', name: '字段B', selector: "//input[@id='b']" }],
+    fillGroups: [{ id: 'g-2', name: '默认', isDefault: true, values: { 'f-2': 'b_val' } }]
+  }
+];
+
+const importedToMerge = [
+  {
+    id: 'r-1', // 同 ID 覆盖
+    urls: ['https://site-a.com'],
+    fields: [{ id: 'f-1', name: '字段A', selector: "//input[@id='a']" }],
+    fillGroups: [{ id: 'g-1', name: '默认', isDefault: true, values: { 'f-1': 'new_val' } }]
+  },
+  {
+    id: 'r-3', // 新 ID 追加
+    urls: ['https://site-c.com'],
+    fields: [{ id: 'f-3', name: '字段C', selector: "//input[@id='c']" }],
+    fillGroups: [{ id: 'g-3', name: '默认', isDefault: true, values: { 'f-3': 'c_val' } }]
+  }
+];
+
+const merged = mergeRules(existingList, importedToMerge);
+assert.strictEqual(merged.length, 3);
+assert.strictEqual(merged.find(r => r.id === 'r-1').fillGroups[0].values['f-1'], 'new_val');
+assert.strictEqual(merged.find(r => r.id === 'r-2').fillGroups[0].values['f-2'], 'b_val');
+assert.strictEqual(merged.find(r => r.id === 'r-3').urls[0], 'https://site-c.com');
+console.log('✅ 测试 10 (智能合并更新与追加规则) 通过');
 
 console.log('全部逻辑测试通过！🎉');

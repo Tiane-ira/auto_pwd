@@ -7,7 +7,9 @@ import {
   loadRulesFromStorage,
   saveRulesToStorage,
   exportRulesToFile,
-  saveAutoFillStatus
+  saveAutoFillStatus,
+  parseImportRules,
+  mergeRules
 } from './modules/storage.js';
 
 import {
@@ -67,6 +69,58 @@ const importModal = document.getElementById('importModal');
 const confirmImportBtn = document.getElementById('confirmImportBtn');
 const cancelImportBtn = document.getElementById('cancelImportBtn');
 const closeImportModal = document.querySelector('.close-import');
+const importDropZone = document.getElementById('importDropZone');
+const rulesFileInput = document.getElementById('rulesFileInput');
+const togglePasteAreaBtn = document.getElementById('togglePasteAreaBtn');
+const pasteToggleArrow = document.getElementById('pasteToggleArrow');
+const pasteAreaContainer = document.getElementById('pasteAreaContainer');
+const importJsonTextarea = document.getElementById('importJsonTextarea');
+const importStatusMessage = document.getElementById('importStatusMessage');
+
+// 导入规则暂存状态
+let pendingImportRules = [];
+
+function resetImportModal() {
+  pendingImportRules = [];
+  if (rulesFileInput) rulesFileInput.value = '';
+  if (importJsonTextarea) importJsonTextarea.value = '';
+  if (importStatusMessage) {
+    importStatusMessage.style.display = 'none';
+    importStatusMessage.className = 'import-status-message';
+    importStatusMessage.textContent = '';
+  }
+  if (confirmImportBtn) {
+    confirmImportBtn.disabled = true;
+    confirmImportBtn.textContent = '确认导入 (0 条)';
+  }
+  if (pasteAreaContainer) pasteAreaContainer.style.display = 'none';
+  if (pasteToggleArrow) pasteToggleArrow.textContent = '▾';
+  const defaultRadio = document.querySelector('input[name="importMode"][value="merge"]');
+  if (defaultRadio) defaultRadio.checked = true;
+}
+
+function showImportStatus(success, message, count = 0) {
+  if (!importStatusMessage) return;
+  importStatusMessage.style.display = 'block';
+  importStatusMessage.className = `import-status-message ${success ? 'success' : 'error'}`;
+  importStatusMessage.textContent = message;
+
+  if (confirmImportBtn) {
+    confirmImportBtn.disabled = !success || count === 0;
+    confirmImportBtn.textContent = success ? `确认导入 (${count} 条)` : '确认导入 (0 条)';
+  }
+}
+
+function processImportContent(content) {
+  const result = parseImportRules(content);
+  if (result.success) {
+    pendingImportRules = result.rules;
+    showImportStatus(true, `✅ 成功解析 ${result.rules.length} 条规则，请选择导入模式后点击确认导入。`, result.rules.length);
+  } else {
+    pendingImportRules = [];
+    showImportStatus(false, `❌ ${result.message}`, 0);
+  }
+}
 const currentRulesList = document.getElementById('currentRulesList');
 const allRulesList = document.getElementById('allRulesList');
 const ruleModal = document.getElementById('ruleModal');
@@ -448,47 +502,118 @@ function setupEventListeners() {
     moreOptionsDropdown.classList.remove('show');
   });
 
-  // 导入规则
+  // 导入规则按钮点击：打开导入弹窗
   importRulesBtn.addEventListener('click', () => {
     moreOptionsDropdown.classList.remove('show');
-    const fileInput = document.createElement('input');
-    fileInput.type = 'file';
-    fileInput.accept = '.json,application/json';
-    fileInput.onchange = (event) => {
-      const file = event.target.files[0];
+    resetImportModal();
+    importModal.style.display = 'block';
+  });
+
+  // 文件选择与拖拽事件
+  if (importDropZone && rulesFileInput) {
+    importDropZone.addEventListener('click', (e) => {
+      if (e.target !== rulesFileInput) {
+        rulesFileInput.click();
+      }
+    });
+
+    rulesFileInput.addEventListener('change', (e) => {
+      const file = e.target.files && e.target.files[0];
       if (!file) return;
       const reader = new FileReader();
       reader.onload = (re) => {
-        try {
-          const data = JSON.parse(re.target.result);
-          if (!data.rules || !Array.isArray(data.rules)) {
-            alert('无效的规则文件格式');
-            return;
-          }
-          window.tempImportedRules = data.rules;
-          importModal.style.display = 'block';
-        } catch (err) {
-          alert('解析规则文件失败，请检查文件格式');
-        }
+        processImportContent(re.target.result);
+      };
+      reader.onerror = () => {
+        showImportStatus(false, '❌ 读取文件失败，请重试');
       };
       reader.readAsText(file);
-    };
-    document.body.appendChild(fileInput);
-    fileInput.click();
-    document.body.removeChild(fileInput);
+    });
+
+    importDropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      importDropZone.classList.add('dragover');
+    });
+
+    importDropZone.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      importDropZone.classList.remove('dragover');
+    });
+
+    importDropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      importDropZone.classList.remove('dragover');
+      const file = e.dataTransfer.files && e.dataTransfer.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (re) => {
+        processImportContent(re.target.result);
+      };
+      reader.onerror = () => {
+        showImportStatus(false, '❌ 读取文件失败，请重试');
+      };
+      reader.readAsText(file);
+    });
+  }
+
+  // 展开/收起粘贴区域
+  if (togglePasteAreaBtn && pasteAreaContainer) {
+    togglePasteAreaBtn.addEventListener('click', () => {
+      const isHidden = pasteAreaContainer.style.display === 'none';
+      pasteAreaContainer.style.display = isHidden ? 'block' : 'none';
+      if (pasteToggleArrow) {
+        pasteToggleArrow.textContent = isHidden ? '▴' : '▾';
+      }
+      if (isHidden && importJsonTextarea) {
+        importJsonTextarea.focus();
+      }
+    });
+  }
+
+  // 粘贴输入框输入事件
+  if (importJsonTextarea) {
+    importJsonTextarea.addEventListener('input', (e) => {
+      const val = e.target.value.trim();
+      if (!val) {
+        pendingImportRules = [];
+        showImportStatus(false, '请输入或粘贴规则 JSON 内容', 0);
+        return;
+      }
+      processImportContent(val);
+    });
+  }
+
+  // 确认导入
+  confirmImportBtn.addEventListener('click', async () => {
+    if (!pendingImportRules || pendingImportRules.length === 0) {
+      alert('没有可导入的有效规则');
+      return;
+    }
+
+    const selectedMode = document.querySelector('input[name="importMode"]:checked');
+    const isOverwrite = selectedMode && selectedMode.value === 'overwrite';
+
+    if (isOverwrite) {
+      rules = pendingImportRules;
+    } else {
+      rules = mergeRules(rules, pendingImportRules);
+    }
+
+    await saveRules();
+    importModal.style.display = 'none';
+    const count = pendingImportRules.length;
+    resetImportModal();
+    showNotification(`成功导入 ${count} 条规则 (${isOverwrite ? '覆盖模式' : '合并模式'})`);
   });
 
-  confirmImportBtn.addEventListener('click', async () => {
-    if (window.tempImportedRules) {
-      rules = window.tempImportedRules.map(normalizeRule);
-      await saveRules();
-      importModal.style.display = 'none';
-      window.tempImportedRules = null;
-      showNotification(`成功导入 ${rules.length} 条规则`);
-    }
+  cancelImportBtn.addEventListener('click', () => {
+    importModal.style.display = 'none';
+    resetImportModal();
   });
-  cancelImportBtn.addEventListener('click', () => { importModal.style.display = 'none'; });
-  closeImportModal.addEventListener('click', () => { importModal.style.display = 'none'; });
+  closeImportModal.addEventListener('click', () => {
+    importModal.style.display = 'none';
+    resetImportModal();
+  });
 
   closeModal.addEventListener('click', closeModalWindow);
   cancelBtn.addEventListener('click', closeModalWindow);
@@ -660,7 +785,10 @@ function setupEventListeners() {
   // 点击外部关闭模态框
   window.addEventListener('click', (e) => {
     if (e.target === ruleModal) closeModalWindow();
-    if (e.target === importModal) importModal.style.display = 'none';
+    if (e.target === importModal) {
+      importModal.style.display = 'none';
+      resetImportModal();
+    }
     if (!moreOptionsBtn.contains(e.target) && !moreOptionsDropdown.contains(e.target)) {
       moreOptionsDropdown.classList.remove('show');
     }

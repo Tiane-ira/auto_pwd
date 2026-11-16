@@ -1,6 +1,6 @@
 {
   "name": "auto-fill-extension",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "A Manifest V3 Chrome extension for automated multi-field form filling with group management and XPath selection.",
   "main": "src/background.js",
   "scripts": {

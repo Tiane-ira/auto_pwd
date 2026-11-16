@@ -34,9 +34,9 @@ auto_pwd/
 ├── assets/
 │   └── icons/                 # 扩展图标资源 (16x16, 48x48, 128x128)
 ├── dist/                      # 构建打包输出目录 (.gitignore)
-│   ├── auto-fill-extension-v2.1.0-dev/      # 解压版开发目录 (供 Chrome 开发者模式直接加载)
-│   ├── auto-fill-extension-v2.1.0-dev.zip  # 开发测试包 (包含内置测试页与调试资源)
-│   └── auto-fill-extension-v2.1.0.zip      # 商店发布包 (纯净合规生产包)
+│   ├── auto-fill-extension-v2.1.1-dev/      # 解压版开发目录 (供 Chrome 开发者模式直接加载)
+│   ├── auto-fill-extension-v2.1.1-dev.zip  # 开发测试包 (包含内置测试页与调试资源)
+│   └── auto-fill-extension-v2.1.1.zip      # 商店发布包 (纯净合规生产包)
 ├── scripts/
 │   └── build.js               # 统一跨平台构建脚本 (纯原生 Node.js，无需额外依赖)
 ├── src/                       # 扩展核心源码 (模块化分层架构)
@@ -84,7 +84,7 @@ auto_pwd/
    - Chrome: `chrome://extensions/`
    - Edge: `edge://extensions/`
 3. 开启右上角的 **「开发者模式 (Developer mode)」**；
-4. 点击 **「加载已解压的扩展程序 (Load unpacked)」**，选择本项目的根目录（或 `dist/auto-fill-extension-v2.1.0-dev/` 目录）；
+4. 点击 **「加载已解压的扩展程序 (Load unpacked)」**，选择本项目的根目录（或 `dist/auto-fill-extension-v2.1.1-dev/` 目录）；
 5. 安装完成，即可在浏览器右上角固定插件图标进行使用。
 
 ---
@@ -124,13 +124,13 @@ npm run package
 ```bash
 # 1. 确保代码已提交
 git add .
-git commit -m "chore: release v2.1.0"
+git commit -m "chore: release v2.1.1"
 
-# 2. 打上对应的版本标签 (格式为 v*，如 v2.1.0)
-git tag v2.1.0
+# 2. 打上对应的版本标签 (格式为 v*，如 v2.1.1)
+git tag v2.1.1
 
 # 3. 推送标签到 GitHub 远端触发自动发布
-git push origin v2.1.0
+git push origin v2.1.1
 ```
 
 ---

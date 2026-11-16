@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Auto Fill Extension",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "支持使用XPath进行元素选择和分组数据填充的浏览器插件",
   "permissions": [
     "storage",
